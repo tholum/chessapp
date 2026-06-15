@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-content font-sans antialiased;
+    margin: 0;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: rgba(110, 139, 255, 0.3);
+    color: #eceff4;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #272e3a;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a4456;
+    background-clip: padding-box;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold
+      transition-all duration-200 ease-smooth focus:outline-none focus-visible:ring-2
+      focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-primary text-primary-fg hover:bg-primary-hover hover:-translate-y-0.5 hover:shadow-glow;
+  }
+  .btn-ghost {
+    @apply btn border border-border bg-transparent text-content hover:border-primary/50
+      hover:bg-raised hover:-translate-y-0.5;
+  }
+  .card-surface {
+    @apply rounded-xl border border-border/70 bg-surface bg-card-sheen shadow-card;
+  }
+  .eyebrow {
+    @apply font-mono text-xs uppercase tracking-[0.2em] text-accent;
+  }
+}
