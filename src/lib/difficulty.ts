@@ -1,23 +1,31 @@
 /**
  * Difficulty ladder for the computer opponent, expressed in *estimated* ELO.
  *
- * Stockfish's own UCI_Elo floor is ~1350, far above a true beginner. To model
- * weaker play we combine a low Skill Level + shallow depth with `randomness`:
- * the fraction of moves where we ignore the engine and play a random legal move
- * instead. High randomness ≈ a beginner who hangs pieces; zero randomness =
- * pure (capped) engine. The ELO figures are approximate guides, not exact.
+ * Rather than crippling Stockfish (which makes ugly, alien moves), we let it
+ * evaluate honestly and return its top `multipv` candidate moves, then SAMPLE
+ * among them with a softmax weighted by evaluation. `temperature` (in
+ * centipawns) controls how loosely we sample: low temperature ≈ always the best
+ * move (strong), high temperature ≈ often a worse-but-still-plausible move
+ * (weak, human-like). `blunderChance` adds the occasional outright howler (a
+ * random legal move) the way real beginners do.
+ *
+ * This produces natural, weak play — capturing, developing, sometimes hanging a
+ * piece — instead of random shuffling. The ELO figures remain approximate
+ * guides, not calibrated ratings.
  */
 export interface DifficultyLevel {
   id: string;
   label: string;
   /** Estimated ELO, shown to the user. Approximate. */
   elo: number;
-  /** Stockfish "Skill Level", 0 (weakest) .. 20 (full strength). */
-  skill: number;
-  /** Search depth in plies. */
+  /** Search depth in plies (also caps the ceiling strength). */
   depth: number;
-  /** Probability [0..1] of playing a random legal move instead of the engine's. */
-  randomness: number;
+  /** How many candidate moves to consider when sampling. */
+  multipv: number;
+  /** Softmax temperature in centipawns. Higher = weaker/looser. 0 = always best. */
+  temperature: number;
+  /** Probability [0..1] of an outright random "howler" move. */
+  blunderChance: number;
   /** One-line description of how this opponent feels to play. */
   blurb: string;
 }
@@ -27,64 +35,71 @@ export const DIFFICULTY_LEVELS: DifficultyLevel[] = [
     id: 'beginner',
     label: 'Beginner',
     elo: 300,
-    skill: 0,
-    depth: 1,
-    randomness: 0.8,
-    blurb: 'Plays mostly random moves and hangs pieces — perfect for your very first games.',
+    depth: 4,
+    multipv: 10,
+    temperature: 400,
+    blunderChance: 0.45,
+    blurb: 'A true novice: makes natural-looking moves but hangs pieces and misses threats often.',
   },
   {
     id: 'novice',
     label: 'Novice',
     elo: 600,
-    skill: 0,
-    depth: 2,
-    randomness: 0.55,
-    blurb: 'Knows how the pieces move but blunders often.',
+    depth: 5,
+    multipv: 8,
+    temperature: 380,
+    blunderChance: 0.26,
+    blurb: 'Develops pieces and grabs material, but still blunders regularly.',
   },
   {
     id: 'casual',
     label: 'Casual',
     elo: 900,
-    skill: 1,
-    depth: 3,
-    randomness: 0.32,
-    blurb: 'Has a basic plan, still very forgiving of your mistakes.',
+    depth: 6,
+    multipv: 6,
+    temperature: 230,
+    blunderChance: 0.13,
+    blurb: 'Has a plan and punishes obvious mistakes — forgiving but not free.',
   },
   {
     id: 'intermediate',
     label: 'Intermediate',
     elo: 1200,
-    skill: 3,
-    depth: 5,
-    randomness: 0.15,
-    blurb: 'Develops sensibly and punishes simple blunders.',
+    depth: 8,
+    multipv: 6,
+    temperature: 165,
+    blunderChance: 0.05,
+    blurb: 'Solid moves, spots simple tactics. You need a real plan now.',
   },
   {
     id: 'skilled',
     label: 'Skilled',
     elo: 1500,
-    skill: 6,
-    depth: 7,
-    randomness: 0.05,
-    blurb: 'Solid club-player strength — you will need a plan.',
+    depth: 10,
+    multipv: 6,
+    temperature: 105,
+    blunderChance: 0.01,
+    blurb: 'Club-player strength — consistent and tactically alert.',
   },
   {
     id: 'advanced',
     label: 'Advanced',
     elo: 1800,
-    skill: 11,
-    depth: 9,
-    randomness: 0,
-    blurb: 'Strong and tactical. Few free gifts here.',
+    depth: 12,
+    multipv: 4,
+    temperature: 40,
+    blunderChance: 0,
+    blurb: 'Strong and precise. Few free gifts here.',
   },
   {
     id: 'expert',
     label: 'Expert',
     elo: 2200,
-    skill: 20,
-    depth: 13,
-    randomness: 0,
-    blurb: 'Full-strength capped search. Good luck.',
+    depth: 15,
+    multipv: 1,
+    temperature: 0,
+    blunderChance: 0,
+    blurb: 'Plays the engine’s best move every time. Good luck.',
   },
 ];
 
