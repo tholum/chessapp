@@ -9,10 +9,14 @@ interface MoveListProps {
 
 /** Two-column SAN move list in mono, with the active move highlighted. */
 export function MoveList({ history, activeIndex }: MoveListProps) {
-  const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    // Scroll the list's OWN container to its bottom — never the page. Using
+    // scrollIntoView here would scroll every ancestor (including the window on
+    // mobile), yanking the user away from the board after each move.
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [history.length]);
 
   // Group into full moves: [white, black].
@@ -33,7 +37,7 @@ export function MoveList({ history, activeIndex }: MoveListProps) {
   }
 
   return (
-    <div className="max-h-64 overflow-y-auto px-2 py-2">
+    <div ref={scrollRef} className="max-h-64 overflow-y-auto px-2 py-2">
       <table className="w-full font-mono text-sm">
         <tbody>
           {rows.map((row) => (
@@ -55,7 +59,6 @@ export function MoveList({ history, activeIndex }: MoveListProps) {
           ))}
         </tbody>
       </table>
-      <div ref={endRef} />
     </div>
   );
 }
