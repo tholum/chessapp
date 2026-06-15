@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Opening } from '../types';
+import { getVariations, mainVariation } from '../data/openings';
 
 interface OpeningCardProps {
   opening: Opening;
@@ -7,6 +8,8 @@ interface OpeningCardProps {
 }
 
 export function OpeningCard({ opening, featured = false }: OpeningCardProps) {
+  const variationCount = getVariations(opening).length;
+  const mainMoves = mainVariation(opening).steps.length;
   return (
     <Link
       to={`/learn/${opening.id}`}
@@ -29,7 +32,12 @@ export function OpeningCard({ opening, featured = false }: OpeningCardProps) {
         <div className="flex flex-col gap-1 font-mono text-xs text-content-muted">
           <span>{opening.eco}</span>
           <span className="capitalize">
-            Play as {opening.side} · {opening.steps.length} moves
+            Play as {opening.side} · {mainMoves} moves
+            {variationCount > 1 && (
+              <span className="ml-1 normal-case text-accent">
+                · {variationCount} variations
+              </span>
+            )}
           </span>
         </div>
       </div>

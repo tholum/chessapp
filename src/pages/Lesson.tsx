@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Chessboard } from 'react-chessboard';
 import type { Square } from 'chess.js';
-import { getOpening } from '../data/openings';
+import { getOpening, getVariations } from '../data/openings';
 import { useTrainer } from '../lib/useTrainer';
 import { useEngineStatus } from '../lib/useEngineStatus';
 import { useToast } from '../components/Toast';
@@ -43,9 +43,60 @@ export default function Lesson() {
 
 function LessonInner({ openingId }: { openingId: string }) {
   const opening = getOpening(openingId)!;
-  const trainer = useTrainer(opening);
+  const variations = useMemo(() => getVariations(opening), [opening]);
+
+  const [variationId, setVariationId] = useState(variations[0].id);
+  const [randomMode, setRandomMode] = useState(false);
+  const activeVar =
+    variations.find((v) => v.id === variationId) ?? variations[0];
+
+  const line = useMemo(
+    () => ({
+      key: `${opening.id}:${activeVar.id}`,
+      side: opening.side,
+      name: opening.name,
+      steps: activeVar.steps,
+    }),
+    [opening.id, opening.side, opening.name, activeVar],
+  );
+
+  const trainer = useTrainer(line);
   const engineStatus = useEngineStatus();
   const { notify } = useToast();
+
+  /** Pick a random variation id, preferring one different from `avoid`. */
+  function randomVariationId(avoid?: string): string {
+    const pool =
+      variations.length > 1 && avoid
+        ? variations.filter((v) => v.id !== avoid)
+        : variations;
+    const idx = Math.floor(Math.random() * pool.length);
+    return pool[idx].id;
+  }
+
+  function selectVariation(id: string) {
+    setRandomMode(false);
+    setVariationId(id);
+    const v = variations.find((x) => x.id === id);
+    if (v) notify(`Now training: ${v.name}.`, 'info');
+  }
+
+  function pickRandom() {
+    setRandomMode(true);
+    const id = randomVariationId(variationId);
+    setVariationId(id);
+    const v = variations.find((x) => x.id === id);
+    notify(`Surprise line: ${v?.name ?? 'random variation'}.`, 'info');
+  }
+
+  function handleRestart() {
+    if (randomMode && variations.length > 1) {
+      setVariationId((cur) => randomVariationId(cur));
+    }
+    trainer.reset();
+    setOrientation(opening.side);
+    notify('Lesson reset.', 'info');
+  }
 
   const [showHint, setShowHint] = useState(false);
   const [orientation, setOrientation] = useState<'white' | 'black'>(
@@ -163,6 +214,16 @@ function LessonInner({ openingId }: { openingId: string }) {
           <h1 className="mt-1 font-display text-3xl font-semibold tracking-tightish text-content">
             {opening.name}
           </h1>
+          {variations.length > 1 && (
+            <p className="mt-1 text-sm text-content-muted">
+              <span className="text-accent">{activeVar.name}</span>
+              {randomMode && (
+                <span className="ml-2 font-mono text-xs text-content-muted">
+                  · random
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <EngineBadge status={engineStatus} />
       </div>
@@ -206,10 +267,112 @@ function LessonInner({ openingId }: { openingId: string }) {
               <span className="font-medium text-accent">Game over</span>
             ) : null}
           </div>
+
+          {/* BOARD CONTROLS — kept directly under the board so they're reachable
+              without scrolling, especially on mobile */}
+          <div className="mt-3 w-full max-w-[560px] space-y-2">
+            {trainer.phase === 'complete' && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleFinishGame}
+                  disabled={engineStatus !== 'ready'}
+                  className="btn-primary w-full"
+                >
+                  {engineStatus === 'loading'
+                    ? 'Loading engine…'
+                    : engineStatus === 'offline'
+                      ? 'Engine offline'
+                      : 'Finish the game vs Stockfish'}
+                </button>
+                {engineStatus === 'offline' && (
+                  <p className="text-center text-xs text-danger">
+                    The engine could not load, so game-finish is unavailable. The
+                    lesson still works fully.
+                  </p>
+                )}
+              </>
+            )}
+            <div className="flex items-center gap-2">
+              {trainer.phase === 'learning' && (
+                <button
+                  type="button"
+                  onClick={handleHint}
+                  disabled={!trainer.isPlayerTurn || !trainer.hintSan}
+                  className="btn-ghost flex-1"
+                >
+                  Hint
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleFlip}
+                className="btn-ghost flex-1"
+              >
+                Flip
+              </button>
+              <button
+                type="button"
+                onClick={handleRestart}
+                className="btn-ghost flex-1"
+              >
+                Restart
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* SIDE PANEL */}
         <aside className="flex flex-col gap-4">
+          {/* VARIATION PICKER */}
+          {variations.length > 1 && (
+            <div className="card-surface p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="font-mono text-xs uppercase tracking-wide text-content-muted">
+                  Variation
+                </span>
+                <button
+                  type="button"
+                  onClick={pickRandom}
+                  className={[
+                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                    randomMode
+                      ? 'border-accent bg-accent/15 text-accent'
+                      : 'border-border text-content-muted hover:border-accent/60 hover:text-content',
+                  ].join(' ')}
+                >
+                  🎲 Random
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {variations.map((v) => {
+                  const active = !randomMode && v.id === variationId;
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => selectVariation(v.id)}
+                      title={v.trigger}
+                      className={[
+                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        active
+                          ? 'border-primary bg-primary/15 text-content'
+                          : 'border-border text-content-muted hover:border-primary/60 hover:text-content',
+                      ].join(' ')}
+                    >
+                      {v.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {activeVar.trigger && (
+                <p className="mt-3 text-xs leading-relaxed text-content-muted">
+                  {activeVar.trigger}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="card-surface divide-y divide-border/70">
             {/* Header */}
             <div className="flex items-center justify-between p-4">
@@ -271,27 +434,10 @@ function LessonInner({ openingId }: { openingId: string }) {
                 Line complete!
               </p>
               <p className="mt-1 text-sm text-content-muted">
-                You played the full {opening.name}. Finish the game against a
-                beginner-strength engine, or replay the line.
+                You played the full {opening.name}. Use the controls under the
+                board to finish the game against a beginner-strength engine, or
+                replay the line.
               </p>
-              <button
-                type="button"
-                onClick={handleFinishGame}
-                disabled={engineStatus !== 'ready'}
-                className="btn-primary mt-4 w-full"
-              >
-                {engineStatus === 'loading'
-                  ? 'Loading engine…'
-                  : engineStatus === 'offline'
-                    ? 'Engine offline'
-                    : 'Finish the game vs Stockfish'}
-              </button>
-              {engineStatus === 'offline' && (
-                <p className="mt-2 text-center text-xs text-danger">
-                  The engine could not load, so game-finish is unavailable. The
-                  lesson still works fully.
-                </p>
-              )}
             </div>
           )}
 
@@ -304,34 +450,6 @@ function LessonInner({ openingId }: { openingId: string }) {
               <p className="mt-1 text-sm text-content">{trainer.result}</p>
             </div>
           )}
-
-          {/* ACTION BAR */}
-          <div className="card-surface flex items-center gap-2 p-3">
-            {trainer.phase === 'learning' && (
-              <button
-                type="button"
-                onClick={handleHint}
-                disabled={!trainer.isPlayerTurn || !trainer.hintSan}
-                className="btn-ghost flex-1"
-              >
-                Hint
-              </button>
-            )}
-            <button type="button" onClick={handleFlip} className="btn-ghost flex-1">
-              Flip
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                trainer.reset();
-                setOrientation(opening.side);
-                notify('Lesson reset.', 'info');
-              }}
-              className="btn-ghost flex-1"
-            >
-              Restart
-            </button>
-          </div>
 
           <KeyIdeas ideas={opening.keyIdeas} />
         </aside>

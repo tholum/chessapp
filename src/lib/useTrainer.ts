@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import type { Square } from 'chess.js';
-import type { Opening } from '../types';
+import type { OpeningStep } from '../types';
 import { getBestMoveSafe } from '../engine/stockfish';
+
+/**
+ * One trainable line, independent of how it was selected. The Lesson page picks
+ * a variation (specific or random) and feeds it here. `key` must be unique per
+ * (opening, variation) so the trainer resets when the selection changes.
+ */
+export interface TrainingLine {
+  key: string;
+  side: 'white' | 'black';
+  name: string;
+  steps: OpeningStep[];
+}
 
 export type TrainerPhase = 'learning' | 'complete' | 'freeplay' | 'gameover';
 
@@ -75,9 +87,9 @@ export interface TrainerApi extends TrainerState {
  *  - startFreePlay() switches to "freeplay": the learner makes legal moves and
  *    Stockfish (beginner strength) answers, until the game ends ("gameover").
  */
-export function useTrainer(opening: Opening): TrainerApi {
-  const learnerColor = opening.side === 'white' ? 'w' : 'b';
-  const orientation = opening.side;
+export function useTrainer(line: TrainingLine): TrainerApi {
+  const learnerColor = line.side === 'white' ? 'w' : 'b';
+  const orientation = line.side;
 
   const gameRef = useRef(new Chess());
   const [version, setVersion] = useState(0); // bump to force re-render from ref
@@ -121,26 +133,26 @@ export function useTrainer(opening: Opening): TrainerApi {
   // Reset whenever the opening changes.
   useEffect(() => {
     reset();
-  }, [opening.id, reset]);
+  }, [line.key, reset]);
 
   // Whose turn is it according to the engine of truth?
   const turnColor = gameRef.current.turn();
   const isLearnerStep =
     phase === 'learning' &&
-    currentStep < opening.steps.length &&
+    currentStep < line.steps.length &&
     turnColor === learnerColor;
 
   // Auto-play opponent (scripted) steps during the learning phase.
   useEffect(() => {
     if (phase !== 'learning') return;
-    if (currentStep >= opening.steps.length) {
+    if (currentStep >= line.steps.length) {
       setPhase('complete');
       setCoaching(
-        `Beautiful — you played the entire ${opening.name} main line. You can replay it, or test yourself by finishing the game against the engine.`,
+        `Beautiful — you played the entire ${line.name} line. You can replay it, try another variation, or test yourself by finishing the game against the engine.`,
       );
       return;
     }
-    const expected = opening.steps[currentStep];
+    const expected = line.steps[currentStep];
     const turn = gameRef.current.turn();
     if (turn === learnerColor) return; // wait for the human
 
@@ -164,7 +176,7 @@ export function useTrainer(opening: Opening): TrainerApi {
 
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, currentStep, version, opening.id, learnerColor]);
+  }, [phase, currentStep, version, line.key, learnerColor]);
 
   const finishGame = useCallback(() => {
     const game = gameRef.current;
@@ -268,7 +280,7 @@ export function useTrainer(opening: Opening): TrainerApi {
       // LEARNING: must match the scripted SAN for this step.
       if (phase !== 'learning' || !isLearnerStep) return false;
 
-      const expected = opening.steps[currentStep];
+      const expected = line.steps[currentStep];
 
       // Validate legality first (so we can produce a real move to compare SAN).
       let mv;
@@ -285,7 +297,7 @@ export function useTrainer(opening: Opening): TrainerApi {
         game.undo(); // roll back the wrong move
         setFb(
           'wrong',
-          `Not quite — that is not the ${opening.name} move here. Take another look.`,
+          `Not quite — that is not the ${line.name} move here. Take another look.`,
         );
         setSelected(null);
         return false;
@@ -305,8 +317,8 @@ export function useTrainer(opening: Opening): TrainerApi {
       phase,
       isLearnerStep,
       currentStep,
-      opening.steps,
-      opening.name,
+      line.steps,
+      line.name,
       learnerColor,
       opponentThinking,
       setFb,
@@ -363,7 +375,7 @@ export function useTrainer(opening: Opening): TrainerApi {
 
   const hintSan =
     phase === 'learning' && isLearnerStep
-      ? opening.steps[currentStep].san
+      ? line.steps[currentStep].san
       : null;
 
   const hintMove = useMemo<LastMove | null>(() => {
@@ -383,7 +395,7 @@ export function useTrainer(opening: Opening): TrainerApi {
     fen: gameRef.current.fen(),
     phase,
     currentStep,
-    totalSteps: opening.steps.length,
+    totalSteps: line.steps.length,
     history,
     coaching,
     feedback,

@@ -16,7 +16,7 @@ export function Logo({ className = '' }: { className?: string }) {
         />
       </svg>
       <span className="font-display text-lg font-semibold tracking-tightish text-content">
-        Chess<span className="text-primary">Reps</span>
+        Chess <span className="text-primary">Learner</span>
       </span>
     </span>
   );
