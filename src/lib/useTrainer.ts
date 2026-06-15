@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import type { Square } from 'chess.js';
 import type { OpeningStep } from '../types';
-import { getBestMoveSafe } from '../engine/stockfish';
+import { getEngineMove } from './engineMove';
+import { DEFAULT_DIFFICULTY, type DifficultyLevel } from './difficulty';
 
 /**
  * One trainable line, independent of how it was selected. The Lesson page picks
@@ -71,7 +72,7 @@ export interface TrainerApi extends TrainerState {
   attemptMove: (from: Square, to: Square, promotion?: string) => boolean;
   selectSquare: (square: Square | null) => void;
   reset: () => void;
-  startFreePlay: () => void;
+  startFreePlay: (level?: DifficultyLevel) => void;
   /** The expected next learner move's SAN, for the Hint button (learning only). */
   hintSan: string | null;
   /** from/to of the hint move, for drawing an arrow. */
@@ -107,6 +108,8 @@ export function useTrainer(line: TrainingLine): TrainerApi {
   const [opponentThinking, setOpponentThinking] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const feedbackNonce = useRef(0);
+  /** Engine strength used during free play; set when free play starts. */
+  const freeplayLevel = useRef<DifficultyLevel>(DEFAULT_DIFFICULTY);
 
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -216,7 +219,7 @@ export function useTrainer(line: TrainingLine): TrainerApi {
     let cancelled = false;
     setOpponentThinking(true);
     (async () => {
-      const uci = await getBestMoveSafe(game.fen(), { depth: 8, skill: 3 });
+      const uci = await getEngineMove(game.fen(), freeplayLevel.current);
       if (cancelled) return;
       if (!uci || uci === '(none)') {
         setOpponentThinking(false);
@@ -358,11 +361,12 @@ export function useTrainer(line: TrainingLine): TrainerApi {
     [isPlayerTurn, selected, attemptMove, learnerColor],
   );
 
-  const startFreePlay = useCallback(() => {
+  const startFreePlay = useCallback((level?: DifficultyLevel) => {
+    freeplayLevel.current = level ?? DEFAULT_DIFFICULTY;
     setPhase('freeplay');
     setSelected(null);
     setCoaching(
-      'Free play! Keep making sensible moves — develop, stay safe, and look for tactics. I will answer with the engine until the game ends.',
+      `Free play vs the ${freeplayLevel.current.label} engine (~${freeplayLevel.current.elo} ELO)! Keep making sensible moves — develop, stay safe, and look for tactics. I will answer until the game ends.`,
     );
     feedbackNonce.current += 1;
     setFeedback({

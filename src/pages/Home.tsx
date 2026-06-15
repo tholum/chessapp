@@ -25,6 +25,9 @@ export default function Home() {
             <Link to={`/learn/${recommendedId}`} className="btn-primary px-6 py-3">
               Start training
             </Link>
+            <Link to="/play" className="btn-ghost px-6 py-3">
+              Play vs computer
+            </Link>
             <a href="#openings" className="btn-ghost px-6 py-3">
               See how it works
             </a>
@@ -33,6 +36,29 @@ export default function Home() {
 
         <div className="mx-auto w-full max-w-md animate-fade-up lg:mx-0">
           <HeroBoard />
+        </div>
+      </section>
+
+      {/* PLAY CHESS CTA */}
+      <section className="mx-auto max-w-shell px-5 pb-20">
+        <div className="card-surface flex flex-col items-start gap-6 p-8 sm:p-10 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-prose">
+            <p className="eyebrow mb-3">Play Chess</p>
+            <h2 className="font-display text-3xl font-semibold tracking-tightish text-content sm:text-4xl">
+              Jump straight into a game vs the computer
+            </h2>
+            <p className="mt-4 text-content-muted">
+              Skip the lesson and just play. Choose your opponent&rsquo;s
+              strength by estimated ELO &mdash; from a gentle, beginner-friendly{' '}
+              <em className="text-content">~300</em> default up to a serious
+              challenge. Pick your side and start whenever you&rsquo;re ready.
+            </p>
+          </div>
+          <div className="shrink-0">
+            <Link to="/play" className="btn-primary px-6 py-3">
+              Play a game
+            </Link>
+          </div>
         </div>
       </section>
 

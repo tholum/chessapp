@@ -4,6 +4,7 @@ import { ToastProvider } from './components/Toast';
 import { Logo } from './components/Logo';
 import Home from './pages/Home';
 import Lesson from './pages/Lesson';
+import PlayChess from './pages/PlayChess';
 
 function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -42,6 +43,19 @@ function Header() {
           >
             Home
           </NavLink>
+          <NavLink
+            to="/play"
+            className={({ isActive }) =>
+              [
+                'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                isActive
+                  ? 'text-content'
+                  : 'text-content-muted hover:text-content',
+              ].join(' ')
+            }
+          >
+            Play
+          </NavLink>
           <Link to="/learn/italian-game" className="btn-primary ml-1">
             Start training
           </Link>
@@ -73,6 +87,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/learn/:openingId" element={<Lesson />} />
+            <Route path="/play" element={<PlayChess />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

@@ -16,6 +16,8 @@ import {
   moveDotStyle,
 } from '../lib/board';
 import { Chess } from 'chess.js';
+import { DifficultySelect } from '../components/DifficultySelect';
+import { DEFAULT_DIFFICULTY_ID, getDifficulty } from '../lib/difficulty';
 
 export default function Lesson() {
   const { openingId } = useParams<{ openingId: string }>();
@@ -47,6 +49,7 @@ function LessonInner({ openingId }: { openingId: string }) {
 
   const [variationId, setVariationId] = useState(variations[0].id);
   const [randomMode, setRandomMode] = useState(false);
+  const [difficultyId, setDifficultyId] = useState(DEFAULT_DIFFICULTY_ID);
   const activeVar =
     variations.find((v) => v.id === variationId) ?? variations[0];
 
@@ -191,7 +194,7 @@ function LessonInner({ openingId }: { openingId: string }) {
       notify('The engine is offline — game finishing is unavailable.', 'danger');
       return;
     }
-    trainer.startFreePlay();
+    trainer.startFreePlay(getDifficulty(difficultyId));
   }
 
   const progressPct =
@@ -273,6 +276,17 @@ function LessonInner({ openingId }: { openingId: string }) {
           <div className="mt-3 w-full max-w-[560px] space-y-2">
             {trainer.phase === 'complete' && (
               <>
+                {engineStatus === 'ready' && (
+                  <div className="rounded-xl border border-border/60 bg-raised/60 p-3">
+                    <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-content-subtle">
+                      Opponent strength
+                    </p>
+                    <DifficultySelect
+                      value={difficultyId}
+                      onChange={setDifficultyId}
+                    />
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={handleFinishGame}
